@@ -80,13 +80,25 @@ class CalculationCreate(CalculationBase):
     )
 
 class CalculationUpdate(BaseModel):
-    """Schema for updating an existing Calculation"""
+    """Schema for updating an existing Calculation (all fields optional)"""
+    type: Optional[CalculationType] = Field(
+        None,
+        description="New calculation type; omit to keep the current one",
+        example="multiplication"
+    )
     inputs: Optional[List[float]] = Field(
         None,
         description="Updated list of numeric inputs for the calculation",
         example=[42, 7],
         min_items=2
     )
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def validate_type(cls, v):
+        if v is None:
+            return v
+        return CalculationBase.validate_type(v)
 
     @model_validator(mode='after')
     def validate_inputs(self) -> "CalculationUpdate":
@@ -97,7 +109,7 @@ class CalculationUpdate(BaseModel):
 
     model_config = ConfigDict(
         from_attributes=True,
-        json_schema_extra={"example": {"inputs": [42, 7]}}
+        json_schema_extra={"example": {"type": "multiplication", "inputs": [42, 7]}}
     )
 
 class CalculationResponse(CalculationBase):
@@ -134,3 +146,6 @@ class CalculationResponse(CalculationBase):
             }
         }
     )
+
+# Alias so the "read" schema can be referred to by its BREAD name.
+CalculationRead = CalculationResponse
