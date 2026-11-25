@@ -1,264 +1,132 @@
-# 📦 Project Setup
+# Module 12
 
----
+This FastAPI application has user accounts (JWT authentication) and per-user calculations (addition, subtraction, multiplication, division) stored in PostgreSQL.
 
-# 🧩 1. Install Homebrew (Mac Only)
+**Docker Hub:** [stelni/assignment12](https://hub.docker.com/r/stelni/assignment12)
 
-> Skip this step if you're on Windows.
+## Endpoints
 
-Homebrew is a package manager for macOS.  
-You’ll use it to easily install Git, Python, Docker, etc.
+Interactive API docs are served at `http://localhost:8000/docs` once the app is running.
 
-**Install Homebrew:**
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/health` | – | Health check |
+| `POST` | `/users/register` | – | Create an account |
+| `POST` | `/users/login` | – | Log in with username or email; returns access and refresh tokens |
+| `POST` | `/users/token` | – | Form login used by the Swagger **Authorize** button |
+| `GET` | `/users/me` | ✓ | Current user's profile |
+| `GET` | `/calculations` | ✓ | Browse your calculations (newest first) |
+| `POST` | `/calculations` | ✓ | Add a calculation |
+| `GET` | `/calculations/{id}` | ✓ | Read one calculation |
+| `PUT` | `/calculations/{id}` | ✓ | Replace a calculation (`type` and `inputs` required) |
+| `PATCH` | `/calculations/{id}` | ✓ | Partially update a calculation (any of `type`, `inputs`) |
+| `DELETE` | `/calculations/{id}` | ✓ | Delete a calculation |
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+Authenticated endpoints expect an `Authorization: Bearer <access_token>` header.
 
-**Verify Homebrew:**
+## Running the app
 
-```bash
-brew --version
-```
-
-If you see a version number, you're good to go.
-
----
-
-# 🧩 2. Install and Configure Git
-
-## Install Git
-
-- **MacOS (using Homebrew)**
+### With Docker Compose (from source)
 
 ```bash
-brew install git
+docker compose up -d --build
 ```
 
-- **Windows**
+This starts:
 
-Download and install [Git for Windows](https://git-scm.com/download/win).  
-Accept the default options during installation.
+| Service | URL | Notes |
+|---|---|---|
+| API | http://localhost:8000 | Docs at `/docs` |
+| PostgreSQL | `localhost:5432` | User `postgres`, password `postgres`. Databases `fastapi_db` (app) and `fastapi_test_db` (tests) |
+| pgAdmin | http://localhost:5050 | Log in with `admin@example.com` / `admin`, then add a server with host `db`, user `postgres`, password `postgres` |
 
-**Verify Git:**
+The tables are created automatically when the API starts.
+
+### With the image from Docker Hub
+
+The published image needs a PostgreSQL database. The simplest way is to reuse the Compose database:
 
 ```bash
-git --version
+docker pull stelni/assignment12:latest
+
+# Start only the database (and pgAdmin) from docker-compose.yml
+docker compose up -d db pgadmin
+
+# Run the published image on the same Docker network
+docker run --rm -p 8000:8000 \
+  --network assignment12_app-network \
+  -e DATABASE_URL=postgresql://postgres:postgres@db:5432/fastapi_db \
+  -e JWT_SECRET_KEY=change-me-to-a-long-random-string \
+  -e JWT_REFRESH_SECRET_KEY=change-me-to-another-long-random-string \
+  stelni/assignment12:latest
 ```
 
----
+The network name is `<folder-name>_app-network`. Check it with `docker network ls` if your folder isn't named `assignment12`. Stop the Compose `web` service first (`docker compose stop web`) or the two will both try to use port 8000.
 
-## Configure Git Globals
+## Running tests locally
 
-Set your name and email so Git tracks your commits properly:
+### 1. Prerequisites
 
-```bash
-git config --global user.name "Your Name"
-git config --global user.email "your_email@example.com"
-```
+- Python 3.11
+- A running PostgreSQL with a `fastapi_test_db` database. The Compose database creates it on first start:
 
-Confirm the settings:
+  ```bash
+  docker compose up -d db
+  ```
 
-```bash
-git config --list
-```
+  If your database volume was created before `init-db.sh` existed, create the test database by hand:
 
----
+  ```bash
+  docker compose exec db psql -U postgres -c "CREATE DATABASE fastapi_test_db;"
+  ```
 
-## Generate SSH Keys and Connect to GitHub
-
-> Only do this once per machine.
-
-1. Generate a new SSH key:
-
-```bash
-ssh-keygen -t ed25519 -C "your_email@example.com"
-```
-
-(Press Enter at all prompts.)
-
-2. Start the SSH agent:
-
-```bash
-eval "$(ssh-agent -s)"
-```
-
-3. Add the SSH private key to the agent:
-
-```bash
-ssh-add ~/.ssh/id_ed25519
-```
-
-4. Copy your SSH public key:
-
-- **Mac/Linux:**
-
-```bash
-cat ~/.ssh/id_ed25519.pub | pbcopy
-```
-
-- **Windows (Git Bash):**
-
-```bash
-cat ~/.ssh/id_ed25519.pub | clip
-```
-
-5. Add the key to your GitHub account:
-   - Go to [GitHub SSH Settings](https://github.com/settings/keys)
-   - Click **New SSH Key**, paste the key, save.
-
-6. Test the connection:
-
-```bash
-ssh -T git@github.com
-```
-
-You should see a success message.
-
----
-
-# 🧩 3. Clone the Repository
-
-Now you can safely clone the course project:
-
-```bash
-git clone <repository-url>
-cd <repository-directory>
-```
-
----
-
-# 🛠️ 4. Install Python 3.10+
-
-## Install Python
-
-- **MacOS (Homebrew)**
-
-```bash
-brew install python
-```
-
-- **Windows**
-
-Download and install [Python for Windows](https://www.python.org/downloads/).  
-✅ Make sure you **check the box** `Add Python to PATH` during setup.
-
-**Verify Python:**
-
-```bash
-python3 --version
-```
-or
-```bash
-python --version
-```
-
----
-
-## Create and Activate a Virtual Environment
-
-(Optional but recommended)
+### 2. Set up a virtual environment
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate   # Mac/Linux
-venv\Scripts\activate.bat  # Windows
-```
-
-### Install Required Packages
-
-```bash
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
----
-
-# 🐳 5. (Optional) Docker Setup
-
-> Skip if Docker isn't used in this module.
-
-## Install Docker
-
-- [Install Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
-- [Install Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-
-## Build Docker Image
+### 3. Run the tests
 
 ```bash
-docker build -t <image-name> .
+pytest                              # everything, with a coverage report
+pytest tests/unit                   # unit tests only
+pytest tests/integration            # model, schema and in-process API tests
+pytest tests/e2e                    # starts a real uvicorn server and calls it over HTTP
+pytest tests/integration/test_calculation_endpoints.py -k lifecycle   # a single test
 ```
 
-## Run Docker Container
+Every run needs the database, including `tests/unit`, because `tests/conftest.py` sets up the test tables before any test runs. Run with the virtual environment activated. The e2e tests start `uvicorn` as a subprocess and need it on your `PATH`.
+
+Useful options:
+
+| Option | Effect |
+|---|---|
+| `--preserve-db` | Keep the test tables after the run so you can inspect them in pgAdmin |
+| `--run-slow` | Also run tests marked `@pytest.mark.slow` |
+| `-x` | Stop at the first failure |
+| `--no-cov` | Skip the coverage report (faster) |
+
+Coverage is printed in the terminal, and an HTML report is written to `htmlcov/index.html`.
+
+### Which database the tests use
+
+The tests always run against `fastapi_test_db`, never the app's `fastapi_db`. The suite creates the tables at the start and drops them at the end, so pointing it at the app database would delete your data. To use a different test database, set `TEST_DATABASE_URL`:
 
 ```bash
-docker run -it --rm <image-name>
+TEST_DATABASE_URL=postgresql://user:password@localhost:5432/mytestdb pytest
 ```
 
----
+### Test layout
 
-# 🚀 6. Running the Project
+| Folder | What it covers |
+|---|---|
+| `tests/unit` | Pure calculation operations |
+| `tests/integration` | SQLAlchemy models, Pydantic schemas, auth helpers, and the API run in-process with FastAPI's `TestClient`. These tests check results directly in the database: users and hashed passwords after registration, `last_login` after login, and calculation rows after create, update and delete. They also check error status codes and messages for invalid data. |
+| `tests/e2e` | The API running in a real uvicorn server, called over HTTP |
 
-- **Without Docker**:
+## CI/CD
 
-```bash
-python main.py
-```
-
-(or update this if the main script is different.)
-
-- **With Docker**:
-
-```bash
-docker run -it --rm <image-name>
-```
-
----
-
-# 📝 7. Submission Instructions
-
-After finishing your work:
-
-```bash
-git add .
-git commit -m "Complete Module X"
-git push origin main
-```
-
-Then submit the GitHub repository link as instructed.
-
----
-
-# 🔥 Useful Commands Cheat Sheet
-
-| Action                         | Command                                          |
-| ------------------------------- | ------------------------------------------------ |
-| Install Homebrew (Mac)          | `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` |
-| Install Git                     | `brew install git` or Git for Windows installer |
-| Configure Git Global Username  | `git config --global user.name "Your Name"`      |
-| Configure Git Global Email     | `git config --global user.email "you@example.com"` |
-| Clone Repository                | `git clone <repo-url>`                          |
-| Create Virtual Environment     | `python3 -m venv venv`                           |
-| Activate Virtual Environment   | `source venv/bin/activate` / `venv\Scripts\activate.bat` |
-| Install Python Packages        | `pip install -r requirements.txt`               |
-| Build Docker Image              | `docker build -t <image-name> .`                |
-| Run Docker Container            | `docker run -it --rm <image-name>`               |
-| Push Code to GitHub             | `git add . && git commit -m "message" && git push` |
-
----
-
-# 📋 Notes
-
-- Install **Homebrew** first on Mac.
-- Install and configure **Git** and **SSH** before cloning.
-- Use **Python 3.10+** and **virtual environments** for Python projects.
-- **Docker** is optional depending on the project.
-
----
-
-# 📎 Quick Links
-
-- [Homebrew](https://brew.sh/)
-- [Git Downloads](https://git-scm.com/downloads)
-- [Python Downloads](https://www.python.org/downloads/)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [GitHub SSH Setup Guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
+The GitHub Actions workflow (`.github/workflows/test.yml`) runs the tests and a Trivy image scan. On pushes to `main` it then builds and pushes `stelni/assignment12:latest` and `stelni/assignment12:<commit-sha>` to [Docker Hub](https://hub.docker.com/r/stelni/assignment12).
