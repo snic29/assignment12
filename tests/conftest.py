@@ -280,3 +280,43 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "slow" in item.keywords:
                 item.add_marker(skip_slow)
+
+# ======================================================================================
+# In-process API Client Fixtures
+# ======================================================================================
+@pytest.fixture
+def client():
+    """
+    FastAPI TestClient running the app in-process against the test database.
+    Unlike the e2e `fastapi_server` fixture, this counts toward coverage of app/main.py.
+    """
+    from fastapi.testclient import TestClient
+    from app.main import app
+    with TestClient(app) as c:
+        yield c
+
+
+def make_user_payload(prefix: str = "user", **overrides) -> Dict[str, str]:
+    """Build a valid UserCreate payload with a unique username/email."""
+    import uuid
+    suffix = uuid.uuid4().hex[:8]
+    payload = {
+        "first_name": "Test",
+        "last_name": "User",
+        "email": f"{prefix}{suffix}@example.com",
+        "username": f"{prefix}{suffix}",
+        "password": "SecurePass123!",
+        "confirm_password": "SecurePass123!",
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.fixture
+def auth_headers(client) -> Dict[str, str]:
+    """Register and log in a fresh user; return its bearer auth header."""
+    user = make_user_payload("auth")
+    assert client.post("/users/register", json=user).status_code == 201
+    resp = client.post("/users/login", json={"username": user["username"], "password": user["password"]})
+    assert resp.status_code == 200, resp.text
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
