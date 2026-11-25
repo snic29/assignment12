@@ -30,7 +30,7 @@ pycparser==2.22
 pydantic==2.10.6
 pydantic-settings==2.7.1
 pydantic_core==2.27.2
-pyee==12.1.1
+pyee>=13,<14
 pytest==8.3.4
 pytest-cov==6.0.0
 pytest-cover==3.0.0
